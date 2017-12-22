@@ -2,17 +2,10 @@ package org.http4k.todo
 
 import org.http4k.contract.bindContract
 import org.http4k.contract.contract
-import org.http4k.core.Body
-import org.http4k.core.HttpHandler
-import org.http4k.core.Method.DELETE
-import org.http4k.core.Method.GET
-import org.http4k.core.Method.PATCH
-import org.http4k.core.Method.POST
-import org.http4k.core.Response
+import org.http4k.core.*
+import org.http4k.core.Method.*
 import org.http4k.core.Status.Companion.NOT_FOUND
 import org.http4k.core.Status.Companion.OK
-import org.http4k.core.then
-import org.http4k.core.with
 import org.http4k.filter.CorsPolicy.Companion.UnsafeGlobalPermissive
 import org.http4k.filter.DebuggingFilters
 import org.http4k.filter.ServerFilters
@@ -27,10 +20,10 @@ fun main(args: Array<String>) {
     val baseUrl = if (args.size > 1) args[1] else "http://localhost:$port"
     val todos = TodoDatabase(baseUrl)
 
-    val globalFilters = DebuggingFilters.PrintRequestAndResponse().then(ServerFilters.Cors(UnsafeGlobalPermissive))
+    TodoServer(port.toInt(), TodoApp(todos)).start().block()
+}
 
-    val todoBody = Body.auto<TodoEntry>().toLens()
-    val todoListBody = Body.auto<List<TodoEntry>>().toLens()
+fun TodoApp(todos: TodoDatabase): HttpHandler {
 
     fun lookup(id: String): HttpHandler = { todos.find(id)?.let { Response(OK).with(todoBody of it) } ?: Response(NOT_FOUND) }
     fun patch(id: String): HttpHandler = { Response(OK).with(todoBody of todos.save(id, todoBody.extract(it))) }
@@ -39,7 +32,9 @@ fun main(args: Array<String>) {
     fun clear(): HttpHandler = { Response(OK).with(todoListBody of todos.clear()) }
     fun save(): HttpHandler = { Response(OK).with(todoBody of todos.save(null, todoBody.extract(it))) }
 
-    globalFilters.then(
+    val globalFilters = DebuggingFilters.PrintRequestAndResponse().then(ServerFilters.Cors(UnsafeGlobalPermissive))
+
+    return globalFilters.then(
         routes(
             contract(
                 Path.of("id") bindContract GET to ::lookup,
@@ -50,7 +45,16 @@ fun main(args: Array<String>) {
                 "/" bindContract DELETE to clear()
             )
         ))
-        .asServer(Jetty(port.toInt())).start().block()
 }
 
-data class TodoEntry(val id: String? = null, val url: String? = null, val title: String? = null, val order: Int? = 0, val completed: Boolean? = false)
+val todoBody = Body.auto<TodoEntry>().toLens()
+val todoListBody = Body.auto<List<TodoEntry>>().toLens()
+
+fun TodoServer(portNum: Int, todoApp: HttpHandler) = todoApp.asServer(Jetty(portNum))
+
+data class TodoEntry(val id: String? = null,
+                     val url: String? = null,
+                     val title: String? = null,
+                     val order: Int? = 0,
+                     val completed: Boolean? = false
+)
