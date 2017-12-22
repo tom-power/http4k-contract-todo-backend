@@ -32,6 +32,11 @@ dependencies {
     compile "org.http4k:http4k-contract:$http4k_version"
     compile "org.http4k:http4k-format-jackson:$http4k_version"
     compile "org.http4k:http4k-server-jetty:$http4k_version"
+    testCompile "org.http4k:http4k-testing-hamkrest:$http4k_version"
+    testCompile "org.http4k:http4k-client-okhttp:$http4k_version"
+    testCompile "junit:junit:4.12"
+    testCompile 'org.jetbrains.spek:spek-api:1.1.5'
+    testRuntime 'org.jetbrains.spek:spek-junit-platform-engine:1.1.5'
 }
 
 mainClassName = 'org.http4k.todo.TodoBackendAppKt'
